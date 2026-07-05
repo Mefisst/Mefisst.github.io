@@ -1,46 +1,64 @@
+const { Readable } = require('stream');
+
 module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+
+  let target = req.query.url || req.query.u;
+
+  if (Array.isArray(target)) target = target[0];
+
+  if (!target) {
+    res.statusCode = 400;
+    res.end('Missing url');
+    return;
+  }
+
+  target = String(target).trim();
+
   try {
-    if (req.method === 'OPTIONS') {
-      res.statusCode = 204;
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', '*');
-      res.end();
-      return;
+    target = decodeURIComponent(target);
+  } catch (e) {}
+
+  target = target.replace(/^\/+/, '');
+
+  const candidates = [];
+
+  if (/^https?:\/\//i.test(target)) {
+    candidates.push(target);
+
+    if (target.startsWith('https://')) {
+      candidates.push('http://' + target.replace(/^https:\/\//i, ''));
     }
+  } else {
+    candidates.push('http://' + target);
+    candidates.push('https://' + target);
+  }
 
-    let target = req.query.url || req.query.u;
+  const baseHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+  };
 
-    if (!target) {
-      res.statusCode = 400;
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.end('Missing url');
-      return;
-    }
+  let finalResponse = null;
+  let finalUrl = '';
+  let lastError = '';
 
-    if (Array.isArray(target)) {
-      target = target[0];
-    }
-
-    target = String(target).trim();
-
-    try {
-      target = decodeURIComponent(target);
-    } catch (e) {}
-
-    if (!/^https?:\/\//i.test(target)) {
-      target = 'https://' + target.replace(/^\/+/, '');
-    }
-
+  for (const url of candidates) {
     let parsed;
 
     try {
-      parsed = new URL(target);
+      parsed = new URL(url);
     } catch (e) {
-      res.statusCode = 400;
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.end('Bad url');
-      return;
+      lastError = 'Bad url: ' + url;
+      continue;
     }
 
     const host = parsed.hostname.toLowerCase();
@@ -52,58 +70,72 @@ module.exports = async function handler(req, res) {
       host.startsWith('192.168.') ||
       /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
     ) {
-      res.statusCode = 403;
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.end('Forbidden host');
-      return;
+      lastError = 'Forbidden host: ' + host;
+      continue;
     }
 
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      'Referer': parsed.origin + '/',
-      'Origin': parsed.origin
+      ...baseHeaders,
+      'Referer': parsed.origin + '/'
     };
 
-    let response = await fetch(target, {
-      method: 'GET',
-      headers: headers,
-      redirect: 'follow'
-    });
+    try {
+      console.log('TRY:', url);
 
-    if (!response.ok && target.startsWith('https://')) {
-      const httpTarget = 'http://' + target.replace(/^https:\/\//i, '');
-
-      response = await fetch(httpTarget, {
+      const response = await fetch(url, {
         method: 'GET',
-        headers: headers,
+        headers,
         redirect: 'follow'
       });
-    }
 
-    if (!response.ok) {
-      res.statusCode = response.status;
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.end('Image fetch error: ' + response.status);
-      return;
-    }
+      console.log('STATUS:', response.status, url);
 
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+      if (response.ok) {
+        finalResponse = response;
+        finalUrl = url;
+        break;
+      }
+
+      lastError = 'Status ' + response.status + ' for ' + url;
+    } catch (e) {
+      lastError = 'Fetch failed for ' + url + ': ' + (e && e.message ? e.message : String(e));
+      console.log('FETCH ERROR:', lastError);
+    }
+  }
+
+  if (!finalResponse) {
+    res.statusCode = 502;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Proxy failed\n' + lastError + '\nOriginal: ' + target);
+    return;
+  }
+
+  try {
+    const contentType = finalResponse.headers.get('content-type') || 'image/jpeg';
 
     res.statusCode = 200;
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('X-Proxy-By', 'vercel-img-proxy');
+    res.setHeader('X-Final-Url', finalUrl);
 
-    res.end(buffer);
+    if (finalResponse.body) {
+      const nodeStream = Readable.fromWeb(finalResponse.body);
+      nodeStream.on('error', function (err) {
+        console.log('STREAM ERROR:', err && err.message ? err.message : err);
+        try {
+          res.destroy(err);
+        } catch (e) {}
+      });
+      nodeStream.pipe(res);
+    } else {
+      const arrayBuffer = await finalResponse.arrayBuffer();
+      res.end(Buffer.from(arrayBuffer));
+    }
   } catch (e) {
+    console.log('RESPONSE ERROR:', e && e.stack ? e.stack : e);
     res.statusCode = 500;
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.end('Proxy error: ' + e.message);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Response error: ' + (e && e.message ? e.message : String(e)));
   }
 };
