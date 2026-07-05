@@ -8,7 +8,7 @@
    */
 
   var SOURCE_SCRIPT = 'http://78.17.216.151:9118/sisi.js';
-  var IMAGE_PROXY = 'https://images.weserv.nl/?url=';
+  var IMAGE_PROXY = 'https://sisi-img.mefist.workers.dev/?url=';
   var DEBUG = true;
 
   function log() {
