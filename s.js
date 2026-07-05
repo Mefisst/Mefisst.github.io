@@ -8,7 +8,7 @@
    */
 
   var SOURCE_SCRIPT = 'http://78.17.216.151:9118/sisi.js';
-  var IMAGE_PROXY = 'https://sisi-img.mefist.workers.dev/?url=';
+  var IMAGE_PROXY = 'https://mefisst-github-io.vercel.app/api/proxy?url=';
   var DEBUG = true;
 
   function log() {
