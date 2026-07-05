@@ -18,10 +18,8 @@
   }
 
   function notify(text) {
-    try {
-      if (window.Lampa && Lampa.Noty) Lampa.Noty.show(text);
-    } catch (e) {}
-  }
+  // Уведомления SisiPlus отключены
+}
 
   function replaceFunction(code, functionName, newFunctionCode) {
     var start = code.indexOf('function ' + functionName + '(');
