@@ -96,9 +96,7 @@ function sisiProxyImage(url) {
   if (sisiIsProxyUrl(url)) return url;
   if (sisiIsVideoUrl(url)) return url;
 
-  var clean = url.replace(/^https?:\\/\\//i, '');
-
-  return SISI_IMAGE_PROXY + encodeURIComponent(clean);
+  return SISI_IMAGE_PROXY + encodeURIComponent(url);
 }
 
 function sisiPickImage(m) {
