@@ -84,7 +84,7 @@ function sisiIsVideoUrl(url) {
 }
 
 function sisiIsProxyUrl(url) {
-  return /(images\\.weserv\\.nl|sisi-img\\.mefist\\.workers\\.dev)/i.test(url || '');
+  return /(images\\.weserv\\.nl|sisi-img\\.mefist\\.workers\\.dev|mefisst-github-io\\.vercel\\.app)/i.test(url || '');
 }
 
 function sisiProxyImage(url) {
