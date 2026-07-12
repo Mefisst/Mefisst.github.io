@@ -4,7 +4,11 @@
   /*
    * Sisi Plus Patch
    * Основа: рабочий sisi.js с 78.17.216.151:9118
-   * Правка: картинки карточек и иконки рекомендаций идут через image-proxy.
+   * Правки:
+   * 1. Картинки карточек идут через Vercel image-proxy.
+   * 2. В выдаче xHamster скрываются карточки с текстовыми признаками trans.
+   * 3. Видео не проксируется.
+   * 4. Уведомление SisiPlus о загрузке не показывается.
    */
 
   var SOURCE_SCRIPT = 'http://78.17.216.151:9118/sisi.js';
@@ -67,6 +71,7 @@
 
   var NEW_FIX_CARDS = `
 var SISI_PROXY_IMAGES = true;
+var SISI_FILTER_XHAMSTER_TRANS = true;
 var SISI_IMAGE_PROXY = '${IMAGE_PROXY}';
 
 function sisiCleanUrl(url) {
@@ -125,8 +130,51 @@ function sisiPickImage(m) {
   );
 }
 
+function sisiCardText(m) {
+  var text = '';
+
+  try {
+    text = JSON.stringify(m || {});
+  } catch (e) {
+    text = String(m || '');
+  }
+
+  try {
+    text = decodeURIComponent(text);
+  } catch (e) {}
+
+  return String(text || '')
+    .replace(/&amp;/g, '&')
+    .toLowerCase();
+}
+
+function sisiIsXhamsterCard(m) {
+  var text = sisiCardText(m);
+
+  return /(xhamster|xhcdn|xhvid)/i.test(text);
+}
+
+function sisiIsTransCard(m) {
+  var text = sisiCardText(m);
+
+  return /(^|[^a-zа-яё0-9])(transgender|transsexual|shemale|ladyboy|tranny|t[\\s._-]?girl|newhalf|трансгендер[а-яё]*|транссексуал[а-яё]*|трансы|транс)(?=$|[^a-zа-яё0-9])/i.test(text);
+}
+
 function fixCards(json) {
-  json.forEach(function(m) {
+  if (!Array.isArray(json)) return;
+
+  for (var i = json.length - 1; i >= 0; i--) {
+    var m = json[i] || {};
+
+    if (
+      SISI_FILTER_XHAMSTER_TRANS &&
+      sisiIsXhamsterCard(m) &&
+      sisiIsTransCard(m)
+    ) {
+      json.splice(i, 1);
+      continue;
+    }
+
     var original_picture = sisiPickImage(m);
 
     if (original_picture) {
@@ -146,7 +194,7 @@ function fixCards(json) {
     m.name = Lampa.Utils
       .capitalizeFirstLetter(m.name || '')
       .replace(/\\&(.*?);/g, '');
-  });
+  }
 }
 `;
 
