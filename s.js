@@ -3,11 +3,8 @@
 
   /*
    * Sisi Plus Patch
-   *
-   * 1. Миниатюры идут через Vercel image-proxy.
-   * 2. Общий фильтр скрывает карточки с признаками trans/gay.
-   * 3. Видео не проксируется.
-   * 4. Уведомление SisiPlus о загрузке не показывается.
+   * Основа: рабочий sisi.js с 78.17.216.151:9118
+   * Правка: картинки карточек и иконки рекомендаций идут через image-proxy.
    */
 
   var SOURCE_SCRIPT = 'http://78.17.216.151:9118/sisi.js';
@@ -70,8 +67,6 @@
 
   var NEW_FIX_CARDS = `
 var SISI_PROXY_IMAGES = true;
-var SISI_FILTER_GENERAL = true;
-var SISI_FILTER_DEBUG = false;
 var SISI_IMAGE_PROXY = '${IMAGE_PROXY}';
 
 function sisiCleanUrl(url) {
@@ -130,281 +125,8 @@ function sisiPickImage(m) {
   );
 }
 
-function sisiTextValue(value) {
-  if (value === undefined || value === null) {
-    return '';
-  }
-
-  if (typeof value === 'string' || typeof value === 'number') {
-    return String(value);
-  }
-
-  try {
-    return JSON.stringify(value);
-  } catch (e) {
-    return String(value || '');
-  }
-}
-
-function sisiNormalizeFilterText(text) {
-  text = String(text || '');
-
-  try {
-    text = decodeURIComponent(text);
-  } catch (e) {}
-
-  return text
-    .toLowerCase()
-    .replace(/ё/g, 'е')
-    .replace(/&amp;/g, '&')
-    .replace(/&[a-z0-9#]+;/gi, ' ')
-    .replace(/[-_+./|:]+/g, ' ')
-    .replace(/[^a-zа-я0-9]+/g, ' ')
-    .replace(/\\s+/g, ' ')
-    .trim();
-}
-
-function sisiCardText(m) {
-  var fields = [
-    'name',
-    'title',
-    'original_title',
-    'description',
-    'descr',
-    'about',
-    'tag',
-    'tags',
-    'category',
-    'categories',
-    'genre',
-    'genres',
-    'search',
-    'query',
-    'url',
-    'link',
-    'uri',
-    'video',
-    'video_url',
-    'video_reserve',
-    'preview',
-    'picture',
-    'poster',
-    'img',
-    'image',
-    'thumb',
-    'thumbnail',
-    'source',
-    'site',
-    'provider',
-    'group',
-    'type'
-  ];
-
-  var parts = [];
-
-  for (var i = 0; i < fields.length; i++) {
-    var key = fields[i];
-
-    if (m && m[key] !== undefined && m[key] !== null) {
-      parts.push(sisiTextValue(m[key]));
-    }
-  }
-
-  return sisiNormalizeFilterText(parts.join(' '));
-}
-
-function sisiContainsBlockedPhrase(text, phrase) {
-  var normalizedPhrase = sisiNormalizeFilterText(phrase);
-
-  if (!normalizedPhrase) {
-    return false;
-  }
-
-  return (
-    (' ' + text + ' ').indexOf(
-      ' ' + normalizedPhrase + ' '
-    ) !== -1
-  );
-}
-
-function sisiIsBlockedCard(m) {
-  var text = sisiCardText(m);
-
-  if (!text) {
-    return false;
-  }
-
-  var blockedPhrases = [
-    'trans',
-    'transgender',
-    'trans gender',
-    'transgenders',
-    'transsexual',
-    'trans sexual',
-    'transsexuals',
-    'transvestite',
-    'trans vestite',
-    'transvestites',
-
-    'shemale',
-    'she male',
-    'shemales',
-
-    'ladyboy',
-    'lady boy',
-    'ladyboys',
-
-    'tranny',
-    'trannies',
-
-    'tgirl',
-    't girl',
-    't girls',
-
-    'newhalf',
-    'new half',
-
-    'femboy',
-    'fem boy',
-    'femboys',
-
-    'crossdresser',
-    'cross dresser',
-    'crossdressers',
-    'crossdressing',
-    'cross dressing',
-
-    'trap',
-
-    'gay',
-    'gays',
-    'gaysex',
-    'gay sex',
-    'gayporn',
-    'gay porn',
-    'gayboy',
-    'gay boy',
-    'gayboys',
-    'gay boys',
-    'gayman',
-    'gay man',
-    'gaymen',
-    'gay men',
-
-    'homosexual',
-    'homosexuals',
-    'homo',
-
-    'twink',
-    'twinks',
-    'yaoi',
-
-    'm2m',
-    'm4m',
-
-    'man on man',
-    'men on men',
-    'boy on boy',
-    'boys on boys',
-    'male on male',
-    'male male',
-
-    'транс',
-    'трансы',
-    'трансов',
-    'трансами',
-
-    'трансгендер',
-    'транс гендер',
-    'трансгендеры',
-    'трансгендеров',
-
-    'транссексуал',
-    'транс сексуал',
-    'транссексуалы',
-    'транссексуалов',
-
-    'трансвестит',
-    'трансвеститы',
-    'трансвеститов',
-
-    'ледибой',
-    'леди бой',
-    'ледибои',
-
-    'фембой',
-    'фем бой',
-    'фембои',
-
-    'кроссдрессер',
-    'кросс дрессер',
-
-    'гей',
-    'геи',
-    'геев',
-    'геями',
-    'гейский',
-    'гейская',
-    'гейское',
-    'гейские',
-    'гей порно',
-
-    'гомо',
-    'гомосексуал',
-    'гомосексуалы',
-    'гомосексуалов',
-
-    'мужик с мужиком',
-    'мужчина с мужчиной',
-    'мужчины с мужчинами',
-    'парень с парнем',
-    'парни с парнями'
-  ];
-
-  for (var i = 0; i < blockedPhrases.length; i++) {
-    if (sisiContainsBlockedPhrase(text, blockedPhrases[i])) {
-      return true;
-    }
-  }
-
-  if (
-    /(?:^| )(трансгендер|транссексуал|трансвестит|гомосексуал|кроссдрессер)[а-я]*(?:$| )/.test(text)
-  ) {
-    return true;
-  }
-
-  if (
-    /(?:^| )(transgender|transsexual|transvestite|shemale|ladyboy|femboy|crossdresser|homosexual|twink)[a-z]*(?:$| )/.test(text)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
 function fixCards(json) {
-  if (!Array.isArray(json)) {
-    return;
-  }
-
-  for (var i = json.length - 1; i >= 0; i--) {
-    var m = json[i] || {};
-
-    if (
-      SISI_FILTER_GENERAL &&
-      sisiIsBlockedCard(m)
-    ) {
-      if (SISI_FILTER_DEBUG && window.console) {
-        console.log(
-          'SisiPlus: карточка скрыта:',
-          m.name || m.title || ''
-        );
-      }
-
-      json.splice(i, 1);
-      continue;
-    }
-
+  json.forEach(function(m) {
     var original_picture = sisiPickImage(m);
 
     if (original_picture) {
@@ -424,7 +146,7 @@ function fixCards(json) {
     m.name = Lampa.Utils
       .capitalizeFirstLetter(m.name || '')
       .replace(/\\&(.*?);/g, '');
-  }
+  });
 }
 `;
 
