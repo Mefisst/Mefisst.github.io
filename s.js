@@ -13,59 +13,26 @@
 
   function log() {
     if (DEBUG && window.console) {
-      console.log.apply(console, ['SisiPlus:'].concat(Array.prototype.slice.call(arguments)));
+      console.log.apply(
+        console,
+        ['SisiPlus:'].concat(Array.prototype.slice.call(arguments))
+      );
     }
   }
 
-  function notify(text) {
-  // Уведомления SisiPlus отключены
-}
-  function muteSisiPlusNotifications() {
-  try {
-    if (!window.Lampa || !Lampa.Noty || !Lampa.Noty.show) return;
-    if (Lampa.Noty.__sisi_plus_muted) return;
-
-    var originalShow = Lampa.Noty.show;
-
-    Lampa.Noty.show = function(text, options) {
-      var message = '';
-
-      try {
-        message = typeof text === 'string' ? text : JSON.stringify(text);
-      } catch (e) {
-        message = String(text || '');
-      }
-
-      if (
-        /SisiPlus/i.test(message) ||
-        /Клубничка загружена/i.test(message) ||
-        /плагин.*загружен/i.test(message) ||
-        /plugin.*loaded/i.test(message)
-      ) {
-        return;
-      }
-
-      return originalShow.apply(this, arguments);
-    };
-
-    Lampa.Noty.__sisi_plus_muted = true;
-  } catch (e) {}
-}
-
-muteSisiPlusNotifications();
-setTimeout(muteSisiPlusNotifications, 300);
-setTimeout(muteSisiPlusNotifications, 1000);
-setTimeout(muteSisiPlusNotifications, 3000);
-
   function replaceFunction(code, functionName, newFunctionCode) {
     var start = code.indexOf('function ' + functionName + '(');
+
     if (start === -1) {
       log('function not found:', functionName);
       return code;
     }
 
     var brace = code.indexOf('{', start);
-    if (brace === -1) return code;
+
+    if (brace === -1) {
+      return code;
+    }
 
     var depth = 0;
     var end = -1;
@@ -73,8 +40,13 @@ setTimeout(muteSisiPlusNotifications, 3000);
     for (var i = brace; i < code.length; i++) {
       var ch = code[i];
 
-      if (ch === '{') depth++;
-      if (ch === '}') depth--;
+      if (ch === '{') {
+        depth++;
+      }
+
+      if (ch === '}') {
+        depth--;
+      }
 
       if (depth === 0) {
         end = i + 1;
@@ -82,9 +54,15 @@ setTimeout(muteSisiPlusNotifications, 3000);
       }
     }
 
-    if (end === -1) return code;
+    if (end === -1) {
+      return code;
+    }
 
-    return code.substring(0, start) + newFunctionCode + code.substring(end);
+    return (
+      code.substring(0, start) +
+      newFunctionCode +
+      code.substring(end)
+    );
   }
 
   var NEW_FIX_CARDS = `
@@ -165,7 +143,9 @@ function fixCards(json) {
       m.preview = sisiCleanUrl(m.preview);
     }
 
-    m.name = Lampa.Utils.capitalizeFirstLetter(m.name || '').replace(/\\&(.*?);/g, '');
+    m.name = Lampa.Utils
+      .capitalizeFirstLetter(m.name || '')
+      .replace(/\\&(.*?);/g, '');
   });
 }
 `;
@@ -174,7 +154,9 @@ function fixCards(json) {
     code = String(code || '');
 
     if (!code || code.indexOf('function fixCards') === -1) {
-      throw new Error('Не найден оригинальный код sisi.js или функция fixCards');
+      throw new Error(
+        'Не найден оригинальный код sisi.js или функция fixCards'
+      );
     }
 
     code = replaceFunction(code, 'fixCards', NEW_FIX_CARDS);
@@ -186,12 +168,15 @@ function fixCards(json) {
 
     code = code.replace(
       'video.src = element.preview;',
-      "video.src = element.preview;\n        video.poster = element.picture || element.poster || element.img || element.background_image || '';\n        video.onerror = function() { container.addClass('hide'); };"
+      "video.src = element.preview;\n" +
+      "        video.poster = element.picture || element.poster || element.img || element.background_image || '';\n" +
+      "        video.onerror = function() { container.addClass('hide'); };"
     );
 
     code = code.replace(
       "if (!window['plugin_sisi_' + Defined.use_api + '_ready']) {",
-      "window['plugin_sisi_' + Defined.use_api + '_ready'] = false;\n  if (!window['plugin_sisi_' + Defined.use_api + '_ready']) {"
+      "window['plugin_sisi_' + Defined.use_api + '_ready'] = false;\n" +
+      "  if (!window['plugin_sisi_' + Defined.use_api + '_ready']) {"
     );
 
     return code;
@@ -204,17 +189,18 @@ function fixCards(json) {
       log('patched code ready, length:', patched.length);
 
       (0, eval)(patched);
-
-      notify('SisiPlus: Клубничка загружена');
     } catch (e) {
       console.error('SisiPlus error:', e);
-      notify('SisiPlus: ошибка патча');
     }
   }
 
   function loadOriginal() {
     try {
-      if (window.Lampa && Lampa.Platform && Lampa.Platform.tv) {
+      if (
+        window.Lampa &&
+        Lampa.Platform &&
+        Lampa.Platform.tv
+      ) {
         Lampa.Platform.tv();
       }
     } catch (e) {}
@@ -235,37 +221,49 @@ function fixCards(json) {
 
     function error(e) {
       console.error('SisiPlus load error:', e);
-      notify('SisiPlus: не удалось загрузить оригинальный sisi.js');
     }
 
     if (network.native) {
-      network.native(SOURCE_SCRIPT, success, error, false, {
-        dataType: 'text',
-        timeout: 15000
-      });
+      network.native(
+        SOURCE_SCRIPT,
+        success,
+        error,
+        false,
+        {
+          dataType: 'text',
+          timeout: 15000
+        }
+      );
     } else {
-      network.silent(SOURCE_SCRIPT, success, error, false, {
-        dataType: 'text',
-        timeout: 15000
-      });
+      network.silent(
+        SOURCE_SCRIPT,
+        success,
+        error,
+        false,
+        {
+          dataType: 'text',
+          timeout: 15000
+        }
+      );
     }
   }
 
   function init() {
-  if (!window.Lampa || !Lampa.Reguest) {
-    setTimeout(init, 500);
-    return;
-  }
+    if (!window.Lampa || !Lampa.Reguest) {
+      setTimeout(init, 500);
+      return;
+    }
 
-  muteSisiPlusNotifications();
-  loadOriginal();
-}
+    loadOriginal();
+  }
 
   if (window.appready) {
     init();
   } else if (window.Lampa && Lampa.Listener) {
     Lampa.Listener.follow('app', function (e) {
-      if (e.type === 'ready') init();
+      if (e.type === 'ready') {
+        init();
+      }
     });
   } else {
     setTimeout(init, 1000);
