@@ -52,6 +52,11 @@
   } catch (e) {}
 }
 
+muteSisiPlusNotifications();
+setTimeout(muteSisiPlusNotifications, 300);
+setTimeout(muteSisiPlusNotifications, 1000);
+setTimeout(muteSisiPlusNotifications, 3000);
+
   function replaceFunction(code, functionName, newFunctionCode) {
     var start = code.indexOf('function ' + functionName + '(');
     if (start === -1) {
