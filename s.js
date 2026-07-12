@@ -20,6 +20,37 @@
   function notify(text) {
   // Уведомления SisiPlus отключены
 }
+  function muteSisiPlusNotifications() {
+  try {
+    if (!window.Lampa || !Lampa.Noty || !Lampa.Noty.show) return;
+    if (Lampa.Noty.__sisi_plus_muted) return;
+
+    var originalShow = Lampa.Noty.show;
+
+    Lampa.Noty.show = function(text, options) {
+      var message = '';
+
+      try {
+        message = typeof text === 'string' ? text : JSON.stringify(text);
+      } catch (e) {
+        message = String(text || '');
+      }
+
+      if (
+        /SisiPlus/i.test(message) ||
+        /Клубничка загружена/i.test(message) ||
+        /плагин.*загружен/i.test(message) ||
+        /plugin.*loaded/i.test(message)
+      ) {
+        return;
+      }
+
+      return originalShow.apply(this, arguments);
+    };
+
+    Lampa.Noty.__sisi_plus_muted = true;
+  } catch (e) {}
+}
 
   function replaceFunction(code, functionName, newFunctionCode) {
     var start = code.indexOf('function ' + functionName + '(');
@@ -216,13 +247,14 @@ function fixCards(json) {
   }
 
   function init() {
-    if (!window.Lampa || !Lampa.Reguest) {
-      setTimeout(init, 500);
-      return;
-    }
-
-    loadOriginal();
+  if (!window.Lampa || !Lampa.Reguest) {
+    setTimeout(init, 500);
+    return;
   }
+
+  muteSisiPlusNotifications();
+  loadOriginal();
+}
 
   if (window.appready) {
     init();
